@@ -15,6 +15,7 @@
 .nbproject
 .project
 *.sublime-project
+.vscode/
 
 # Temps
 *~

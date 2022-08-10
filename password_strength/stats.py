@@ -14,31 +14,32 @@ except ImportError:
 
 
 def cached_property(f):
-    """ Property that will replace itself with a calculated value """
-    name = '__' + f.__name__
+    """Property that will replace itself with a calculated value"""
+    name = "__" + f.__name__
 
     @wraps(f)
     def wrapper(self):
         if not hasattr(self, name):
             setattr(self, name, f(self))
         return getattr(self, name)
+
     return property(wrapper)
 
 
 class PasswordStats(object):
-    """ PasswordStats allows to calculate statistics on a password.
+    """PasswordStats allows to calculate statistics on a password.
 
-        It considers a password as a unicode string, and all statistics are unicode-based.
+    It considers a password as a unicode string, and all statistics are unicode-based.
     """
 
     def __init__(self, password):
         self.password = six.text_type(password)
 
-    #region Statistics
+    # region Statistics
 
     @cached_property
     def alphabet(self):
-        """ Get alphabet: set of used characters
+        """Get alphabet: set of used characters
 
         :rtype: set
         """
@@ -46,7 +47,7 @@ class PasswordStats(object):
 
     @cached_property
     def alphabet_cardinality(self):
-        """ Get alphabet cardinality: alphabet length
+        """Get alphabet cardinality: alphabet length
 
         :rtype: int
         """
@@ -54,7 +55,7 @@ class PasswordStats(object):
 
     @cached_property
     def char_categories_detailed(self):
-        """ Character count per unicode category, detailed format.
+        """Character count per unicode category, detailed format.
 
         See: http://www.unicode.org/reports/tr44/#GC_Values_Table
 
@@ -65,7 +66,7 @@ class PasswordStats(object):
 
     @cached_property
     def char_categories(self):
-        """ Character count per top-level category
+        """Character count per top-level category
 
         The following top-level categories are defined:
 
@@ -85,13 +86,13 @@ class PasswordStats(object):
             c[cat[0]] += n
         return c
 
-    #endregion
+    # endregion
 
-    #region Counters
+    # region Counters
 
     @cached_property
     def length(self):
-        """ Get password length
+        """Get password length
 
         :rtype: int
         """
@@ -99,77 +100,84 @@ class PasswordStats(object):
 
     @cached_property
     def letters(self):
-        """ Count all letters
+        """Count all letters
 
         :rtype: int
         """
-        return self.char_categories['L']
+        return self.char_categories["L"]
 
     @cached_property
     def letters_uppercase(self):
-        """ Count uppercase letters
+        """Count uppercase letters
 
         :rtype: int
         """
-        return self.char_categories_detailed['Lu']
+        return self.char_categories_detailed["Lu"]
 
     @cached_property
     def letters_lowercase(self):
-        """ Count lowercase letters
+        """Count lowercase letters
 
         :rtype: int
         """
-        return self.char_categories_detailed['Ll']
+        return self.char_categories_detailed["Ll"]
 
     @cached_property
     def numbers(self):
-        """ Count numbers
+        """Count numbers
 
         :rtype: int
         """
-        return self.char_categories['N']
+        return self.char_categories["N"]
 
     def count(self, *categories):
-        """ Count characters of the specified classes only
+        """Count characters of the specified classes only
 
         :param categories: Character categories to count
         :type categories: Iterable
         :rtype: int
         """
-        return sum([int(cat_n[0] in categories) * cat_n[1] for cat_n in list(self.char_categories.items())])
+        return sum(
+            [int(cat_n[0] in categories) * cat_n[1] for cat_n in list(self.char_categories.items())]
+        )
 
     def count_except(self, *categories):
-        """ Count characters of all classes except the specified ones
+        """Count characters of all classes except the specified ones
 
         :param categories: Character categories to exclude from count
         :type categories: Iterable
         :rtype: int
         """
-        return sum([int(cat_n1[0] not in categories) * cat_n1[1] for cat_n1 in list(self.char_categories.items())])
+        return sum(
+            [
+                int(cat_n1[0] not in categories) * cat_n1[1]
+                for cat_n1 in list(self.char_categories.items())
+            ]
+        )
 
     @cached_property
     def special_characters(self):
-        """ Count special characters
+        """Count special characters
 
         Special characters is everything that's not a letter or a number
 
         :rtype: int
         """
-        return self.count_except('L', 'N')
+        return self.count_except("L", "N")
 
-    #region Security
+    # region Security
 
     @cached_property
     def combinations(self):
-        """ The number of possible combinations with the current alphabet
+        """The number of possible combinations with the current alphabet
 
         :rtype: long
         """
-        return self.alphabet_cardinality ** self.length
+        return self.alphabet_cardinality**self.length
 
     @cached_property
     def entropy_bits(self):
-        """ Get information entropy bits: log2 of the number of possible passwords
+        """Get information entropy bits: log2 of the number of possible passwords
 
         https://en.wikipedia.org/wiki/Password_strength
 
@@ -179,7 +187,7 @@ class PasswordStats(object):
 
     @cached_property
     def entropy_density(self):
-        """ Get information entropy density factor, ranged {0 .. 1}.
+        """Get information entropy density factor, ranged {0 .. 1}.
 
         This is ratio of entropy_bits() to max bits a password of this length could have.
         E.g. if all characters are unique -- then it's 1.0.
@@ -194,7 +202,7 @@ class PasswordStats(object):
         return log(self.alphabet_cardinality, self.length)
 
     def strength(self, weak_bits=30):
-        """ Get password strength as a number normalized to range {0 .. 1}.
+        """Get password strength as a number normalized to range {0 .. 1}.
 
         Normalization is done in the following fashion:
 
@@ -215,7 +223,7 @@ class PasswordStats(object):
         if self.entropy_bits <= weak_bits:
             return WEAK_MAX * self.entropy_bits / weak_bits
 
-        HARD_BITS = weak_bits*3
+        HARD_BITS = weak_bits * 3
         HARD_VAL = 0.950
 
         # Here, we want a function that:
@@ -232,20 +240,20 @@ class PasswordStats(object):
         #       1 - (1-WEAK_MAX)*2^( -k*HARD_BITS) = HARD_VAL
         #                        2^( -k*HARD_BITS) = (1 - HARD_VAL) / (1-WEAK_MAX)
         #       k = -log2((1 - HARD_VAL) / (1-WEAK_MAX)) / HARD_BITS
-        k = -log((1 - HARD_VAL) / (1-WEAK_MAX), 2) / HARD_BITS
-        f = lambda x: 1 - (1-WEAK_MAX)*pow(2, -k*x)
+        k = -log((1 - HARD_VAL) / (1 - WEAK_MAX), 2) / HARD_BITS
+        f = lambda x: 1 - (1 - WEAK_MAX) * (-k * (x - weak_bits))
 
         return f(self.entropy_bits - weak_bits)  # with offset
 
-    #endregion
+    # endregion
 
-    #region Detectors
+    # region Detectors
 
-    _repeated_patterns_rex = re.compile(r'((.+?)\2+)', re.UNICODE | re.DOTALL | re.IGNORECASE)
+    _repeated_patterns_rex = re.compile(r"((.+)\2+)", re.UNICODE | re.DOTALL | re.IGNORECASE)
 
     @cached_property
     def repeated_patterns_length(self):
-        """ Detect and return the length of repeated patterns.
+        """Detect and return the length of repeated patterns.
 
         You will probably be comparing it with the length of the password itself and ban if it's longer than 10%
 
@@ -257,16 +265,16 @@ class PasswordStats(object):
         return length
 
     _sequences = (
-        'abcdefghijklmnopqrstuvwxyz'  # Alphabet
-        'qwertyuiopasdfghjklzxcvbnm'  # Keyboard
-        '~!@#$%^&*()_+-='  # Keyboard special, top row
-        '01234567890'  # Numbers
+        "abcdefghijklmnopqrstuvwxyz"  # Alphabet
+        "qwertyuiopasdfghjklzxcvbnm"  # Keyboard
+        "~!@#$%^&*()_+-="  # Keyboard special, top row
+        "01234567890"  # Numbers
     )
     _sequences = _sequences + _sequences[::-1]  # reversed
 
     @cached_property
     def sequences_length(self):
-        """ Detect and return the length of used sequences:
+        """Detect and return the length of used sequences:
 
         - Alphabet letters: abcd...
         - Keyboard letters: qwerty, etc
@@ -291,15 +299,17 @@ class PasswordStats(object):
             while True:
                 # Detect the first match with the current character
                 # A character may appear multiple times
-                j = self._sequences.find(password[0], j+1)
+                j = self._sequences.find(password[0], j + 1)
                 if j == -1:
                     break
 
                 # Find the longest common prefix
-                common_here = ''
+                common_here = ""
                 for a, b in zip(password, self._sequences[j:]):
-                    if a != b: break
-                    else: common_here += a
+                    if a != b:
+                        break
+                    else:
+                        common_here += a
 
                 # It it's longer than previous discoveries -- store it
                 common_length = max(common_length, len(common_here))
@@ -315,7 +325,7 @@ class PasswordStats(object):
 
     @cached_property
     def weakness_factor(self):
-        """ Get weakness factor as a float in range {0 .. 1}
+        """Get weakness factor as a float in range {0 .. 1}
 
         This detects the portion of the string that contains:
         * repeated patterns
@@ -332,16 +342,14 @@ class PasswordStats(object):
         """
         return min(1.0, (self.repeated_patterns_length + self.sequences_length) / self.length)
 
-    #endregion
+    # endregion
 
     def test(self, tests):
-        """ Test the password against a list of tests
+        """Test the password against a list of tests
 
         :param tests: Test to do
         :type tests: Iterable[password_strength.tests.ATest]
         :return: list of tests that have failed
         :rtype: list[tests.ATest]
         """
-        return [t
-                for t in tests
-                if not t.test(self)]
+        return [t for t in tests if not t.test(self)]
