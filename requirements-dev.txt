@@ -1,4 +1,4 @@
 wheel
-nose
+nose2
 exdoc
 j2cli
